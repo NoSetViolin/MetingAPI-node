@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Meting API</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, sans-serif; }
+    body { max-width: 900px; margin: 42px auto; padding: 0 20px; line-height: 1.7; color: #222; background: #fafafa; }
+    a { color: #1769aa; }
+    code { padding: 2px 5px; background: #f2f2f2; border-radius: 4px; }
+    .intro { color: #555; }
+    .toolbar { display: flex; gap: 12px; align-items: center; margin: 24px 0 12px; }
+    button { border: 1px solid #bbb; border-radius: 6px; padding: 7px 12px; background: white; cursor: pointer; }
+    #status-time { color: #777; font-size: 0.9rem; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    .card { padding: 18px; border: 1px solid #ddd; border-radius: 10px; background: white; box-shadow: 0 2px 8px #0000000b; }
+    .card h2 { margin-top: 0; font-size: 1.15rem; }
+    .row { display: flex; justify-content: space-between; gap: 16px; border-top: 1px solid #eee; padding: 8px 0; }
+    .row:first-of-type { border-top: 0; }
+    .label { color: #666; }
+    .value { text-align: right; font-weight: 600; }
+    .ok { color: #167447; }
+    .warn { color: #a15c00; }
+    .bad { color: #b42318; }
+    @media (max-width: 560px) { .row { display: block; } .value { text-align: left; } }
+  </style>
+</head>
+<body>
+  <h1>Meting API</h1>
+  <p class="intro">Node.js 版本的网易云音乐和 QQ 音乐 API。</p>
+  <div class="toolbar">
+    <button id="refresh-status" type="button">刷新状态</button>
+    <span id="status-time">正在读取登录状态…</span>
+  </div>
+  <section class="cards" aria-live="polite">
+    <article class="card">
+      <h2>网易云音乐</h2>
+      <div class="row"><span class="label">凭据状态</span><span class="value" id="netease-login">读取中</span></div>
+      <div class="row"><span class="label">Cookie 更新时间</span><span class="value" id="netease-cookie">读取中</span></div>
+      <div class="row"><span class="label">自动刷新</span><span class="value">手动更新</span></div>
+    </article>
+    <article class="card">
+      <h2>QQ 音乐</h2>
+      <div class="row"><span class="label">凭据状态</span><span class="value" id="tencent-login">读取中</span></div>
+      <div class="row"><span class="label">Cookie 更新时间</span><span class="value" id="tencent-cookie">读取中</span></div>
+      <div class="row"><span class="label">自动刷新</span><span class="value" id="qq-renewal">读取中</span></div>
+      <div class="row"><span class="label">上次成功刷新</span><span class="value" id="qq-last">读取中</span></div>
+      <div class="row"><span class="label">下次计划刷新</span><span class="value" id="qq-next">读取中</span></div>
+    </article>
+  </section>
+  <p><a href="docs/">打开 APlayer 演示页</a></p>
+  <h2>示例</h2>
+  <ul>
+    <li><code>/?server=netease&amp;type=song&amp;id=591321</code></li>
+    <li><code>/?server=tencent&amp;type=song&amp;id=&lt;song-mid&gt;</code></li>
+    <li><code>/?server=tencent&amp;type=url&amp;id=&lt;song-mid&gt;</code></li>
+  </ul>
+  <script>
+    const labels = {
+      configured: ['已配置', 'ok'],
+      missing: ['未配置', 'bad'],
+      reauth_required: ['需要重新登录', 'bad'],
+      disabled: ['已关闭', 'warn'],
+      cookie_only: ['仅可播放，缺少续期凭据', 'warn'],
+      scheduled: ['已安排自动刷新', 'ok'],
+      retrying: ['等待重试', 'warn']
+    };
+
+    function formatTime(value) {
+      return value ? new Date(value).toLocaleString() : '暂无';
+    }
+
+    function setValue(id, value, state) {
+      const element = document.getElementById(id);
+      element.textContent = value;
+      element.className = `value ${state || ''}`;
+    }
+
+    async function loadStatus() {
+      const response = await fetch('api/status', { cache: 'no-store' });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      const netease = data.platforms.netease;
+      const tencent = data.platforms.tencent;
+      const qqRenewal = tencent.renewal;
+      const [neteaseText, neteaseClass] = labels[netease.loginState] || ['未知', 'warn'];
+      const [tencentText, tencentClass] = labels[tencent.loginState] || ['未知', 'warn'];
+      const [renewalText, renewalClass] = labels[qqRenewal.renewalStatus] || ['未知', 'warn'];
+      setValue('netease-login', neteaseText, neteaseClass);
+      setValue('tencent-login', tencentText, tencentClass);
+      setValue('qq-renewal', renewalText, renewalClass);
+      document.getElementById('netease-cookie').textContent = formatTime(netease.cookieUpdatedAt);
+      document.getElementById('tencent-cookie').textContent = formatTime(tencent.cookieUpdatedAt);
+      document.getElementById('qq-last').textContent = formatTime(qqRenewal.lastRefreshAt);
+      document.getElementById('qq-next').textContent = formatTime(qqRenewal.nextRefreshAt);
+      document.getElementById('status-time').textContent = `状态更新时间 ${formatTime(data.generatedAt)}`;
+    }
+
+    async function refreshStatus() {
+      try {
+        await loadStatus();
+      } catch (error) {
+        document.getElementById('status-time').textContent = '状态读取失败，请稍后重试';
+      }
+    }
+
+    document.getElementById('refresh-status').addEventListener('click', refreshStatus);
+    refreshStatus();
+    window.setInterval(refreshStatus, 60000);
+  </script>
+</body>
+</html>

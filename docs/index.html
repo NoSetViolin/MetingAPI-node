@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="shortcut icon" href="favicon.png" type="image/x-icon">
+  <title>Meting APlayer Demo</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aplayer/dist/APlayer.min.css">
+</head>
+<body>
+  <div id="player"></div>
+  <script src="https://cdn.jsdelivr.net/npm/aplayer/dist/APlayer.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/meting@2/dist/Meting.min.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const playlistId = params.get('id') || '2619366284';
+    const apiRoot = `${window.location.origin}/`;
+    window.meting_api = `${apiRoot}?server=:server&type=:type&id=:id&auth=:auth&r=:r`;
+    document.getElementById('player').innerHTML =
+      `<meting-js server="netease" type="playlist" id="${playlistId}" order="list"></meting-js>`;
+  </script>
+</body>
+</html>

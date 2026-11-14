@@ -1,0 +1,8 @@
+node_modules/
+dist/
+cache/
+.env
+.env.*
+!.env.example
+storage/*.txt
+storage/*.json
